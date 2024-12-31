@@ -7,18 +7,20 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 interface SafetyButtonProps {
   show: boolean;
-  onClick: () => void;
 }
 
-export default function SafetyButton({ show, onClick }: SafetyButtonProps) {
+export default function SafetyButton({ show }: SafetyButtonProps) {
+  const router = useRouter();
+  
   if (!show) return null;
 
   return (
     <motion.button
-      onClick={onClick}
+      onClick={() => router.push('/dashboard')}
       className="group relative px-12 py-4 rounded-md overflow-hidden
         min-w-[300px] h-[60px] flex items-center justify-center
         bg-black/40 backdrop-blur-sm

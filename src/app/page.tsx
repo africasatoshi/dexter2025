@@ -86,10 +86,7 @@ export default function LandingPage() {
                 onComplete={handleSequenceComplete}
               />
             ) : (
-              <SafetyButton 
-                show={true}
-                onClick={handleEnterSafetyZone}
-              />
+              <SafetyButton show={showButton} />
             )}
           </AnimatePresence>
         </div>
