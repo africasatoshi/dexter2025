@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import DOS-style font */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
 @keyframes scan {
   from {
     transform: translateY(-100%);
@@ -11,8 +14,68 @@
   }
 }
 
+/* Terminal text styling */
+.terminal-text {
+  font-family: 'VT323', monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+/* DOS-style button text */
+.dos-text {
+  font-family: 'VT323', monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .animate-scan {
   animation: scan 2s linear infinite;
+}
+
+/* New Fox animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-10px) translateX(5px);
+  }
+  75% {
+    transform: translateY(10px) translateX(-5px);
+  }
+}
+
+@keyframes gentle-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-gentle-bounce {
+  animation: gentle-bounce 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-particles > div {
+  animation: float var(--duration, 2s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
 }
 
 :root {

@@ -52,7 +52,7 @@ export default function SafetyButton({ show, onClick }: SafetyButtonProps) {
         animate-scan transition-opacity duration-300" />
 
       {/* Button text */}
-      <span className="relative font-mono text-white/90 text-sm tracking-[0.2em] uppercase">
+      <span className="relative dos-text text-white/90 text-lg tracking-[0.2em] uppercase">
         Enter Safety Zone
       </span>
 

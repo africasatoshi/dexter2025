@@ -1,10 +1,6 @@
 /**
  * Terminal.tsx
- * Retro-modern terminal display for landing page messages
- * Features:
- * - Typewriter text effect with line breaks
- * - View transitions
- * - Blinking cursor
+ * Classic DOS-style terminal display
  */
 
 'use client';
@@ -28,16 +24,14 @@ export default function Terminal({ messages, isAwake, onComplete }: TerminalProp
   useEffect(() => {
     if (!messages?.length || currentMessageIndex >= messages.length) return;
     
-    const currentMessage = messages[currentMessageIndex];
+    const currentMessage = messages[currentMessageIndex].toUpperCase();
     
     if (displayedText === currentMessage) {
-      // Message complete - longer pause at the end
       const timer = setTimeout(() => {
         if (currentMessageIndex < messages.length - 1) {
           setCurrentMessageIndex(prev => prev + 1);
           setDisplayedText('');
         } else {
-          // Add extra delay before completing menu sequence
           const completeTimer = setTimeout(() => {
             onComplete();
           }, TIMING.MESSAGE_DELAY);
@@ -47,11 +41,9 @@ export default function Terminal({ messages, isAwake, onComplete }: TerminalProp
       return () => clearTimeout(timer);
     }
 
-    // Type next character with variable delays
     const nextChar = currentMessage[displayedText.length];
     let delay = TIMING.TYPING_SPEED;
     
-    // Add pauses for punctuation and line breaks
     if (nextChar === '.') delay *= 4;
     if (nextChar === ',') delay *= 2;
     if (nextChar === '\n') delay *= 3;
@@ -72,26 +64,17 @@ export default function Terminal({ messages, isAwake, onComplete }: TerminalProp
   }, []);
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={currentMessageIndex}
-        className="font-mono text-lg text-white bg-black/10 p-6 rounded-lg backdrop-blur-sm min-w-[300px] 
-          border-[1px] border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)] 
-          before:content-[''] before:absolute before:inset-[1px] before:rounded-lg before:border before:border-white/5"
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-        transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
-      >
-        <div className="relative text-white whitespace-pre-line">
+    <div className="relative">
+      <div className="relative bg-black/10 backdrop-blur-sm border border-white/10 rounded-lg p-6 min-h-[100px]">
+        <div className="terminal-text text-white whitespace-pre-line">
           {displayedText}
           <motion.span
-            className="inline-block w-2 h-4 ml-1 bg-white align-middle"
+            className="inline-block w-[0.6em] h-[1.2em] ml-[2px] bg-white align-middle"
             animate={{ opacity: showCursor ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.2 }}
           />
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </div>
+    </div>
   );
 } 
