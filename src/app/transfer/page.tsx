@@ -14,22 +14,51 @@ import {
   LinkSharing
 } from '@/app/transfer/components/Steps';
 import Dexter from '@/app/transfer/components/Dexter';
-import type { TransferStep } from '@/app/transfer/types';
+import type { TransferStep, Asset, Chain, TransferDetails } from '@/app/transfer/types';
 
 export default function TransferPage(): React.ReactElement {
   const [currentStep, setCurrentStep] = useState<TransferStep>('asset-selection');
+  const [selectedAsset, setSelectedAsset] = useState<Asset>();
+  const [selectedChain, setSelectedChain] = useState<Chain>();
+  const [transferDetails, setTransferDetails] = useState<TransferDetails>();
 
   // Render the current step
   const renderStep = () => {
     switch (currentStep) {
       case 'asset-selection':
-        return <AssetSelection onNext={() => setCurrentStep('safety-scan')} />;
+        return <AssetSelection 
+          onNext={() => setCurrentStep('safety-scan')}
+          onAssetSelect={(asset: Asset, chain: Chain) => {
+            setSelectedAsset(asset);
+            setSelectedChain(chain);
+          }}
+        />;
       case 'safety-scan':
         return <SafetyScan onNext={() => setCurrentStep('test-transfer')} />;
       case 'test-transfer':
-        return <TestTransfer onNext={() => setCurrentStep('email-verification')} />;
+        if (!selectedAsset || !selectedChain) {
+          setCurrentStep('asset-selection');
+          return null;
+        }
+        return (
+          <TestTransfer 
+            onNext={(details: TransferDetails) => {
+              setTransferDetails(details);
+              setCurrentStep('email-verification');
+            }}
+            selectedAsset={selectedAsset}
+            selectedChain={selectedChain}
+          />
+        );
       case 'email-verification':
-        return <EmailVerification onNext={() => setCurrentStep('link-sharing')} />;
+        if (!transferDetails) {
+          setCurrentStep('test-transfer');
+          return null;
+        }
+        return <EmailVerification 
+          onNext={() => setCurrentStep('link-sharing')}
+          transferDetails={transferDetails}
+        />;
       case 'link-sharing':
         return <LinkSharing onNext={() => window.location.href = '/dashboard'} />;
       default:
@@ -68,34 +97,6 @@ export default function TransferPage(): React.ReactElement {
         <div className="space-y-6">
           {renderStep()}
         </div>
-
-        {/* Back button */}
-        {currentStep !== 'asset-selection' && (
-          <div className="fixed bottom-8 left-8">
-            <button
-              onClick={() => {
-                switch (currentStep) {
-                  case 'safety-scan':
-                    setCurrentStep('asset-selection');
-                    break;
-                  case 'test-transfer':
-                    setCurrentStep('safety-scan');
-                    break;
-                  case 'email-verification':
-                    setCurrentStep('test-transfer');
-                    break;
-                  case 'link-sharing':
-                    setCurrentStep('email-verification');
-                    break;
-                }
-              }}
-              className="px-6 py-3 bg-white/5 hover:bg-white/10
-                rounded-lg font-medium transition-colors"
-            >
-              Back
-            </button>
-          </div>
-        )}
       </div>
     </main>
   );

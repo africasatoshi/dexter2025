@@ -7,50 +7,66 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { ErrorPopover } from '../AssetSelection/ErrorPopover';
+import type { TransferDetails } from '@/app/transfer/types';
+import { formatUSD, formatCrypto } from '../../../../utils/format';
 
 interface EmailVerificationProps {
   onNext: () => void;
+  transferDetails: TransferDetails;
 }
 
-interface TransactionReceipt {
-  hash: string;
-  amount: number;
-  asset: string;
-  chain: string;
-  recipientAddress: string;
-}
-
-// Mock transaction data
-const TRANSACTION: TransactionReceipt = {
-  hash: '0x1234...5678',
-  amount: 1.0,
-  asset: 'ETH',
-  chain: 'Ethereum',
-  recipientAddress: '0xabcd...ef90'
-};
-
-export default function EmailVerification({ onNext }: EmailVerificationProps): React.ReactElement {
+export default function EmailVerification({ onNext, transferDetails }: EmailVerificationProps): React.ReactElement {
   const [email, setEmail] = useState('');
   const [isEmailSubmitted, setIsEmailSubmitted] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
+  const [isCopied, setIsCopied] = useState<'recipient' | 'hash' | null>(null);
+
+  const validateEmail = (email: string): string[] => {
+    const errors: string[] = [];
+    if (!email) {
+      errors.push('Please enter your email address');
+    } else if (!email.includes('@')) {
+      errors.push("Please include an '@' in the email address");
+    } else if (email.startsWith('@') || email.endsWith('@')) {
+      errors.push("Email address cannot start or end with '@'");
+    } else if (!email.includes('.')) {
+      errors.push("Please include a domain (e.g. '.com')");
+    } else if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      errors.push('Please enter a valid email address');
+    }
+    return errors;
+  };
+
+  const validateOtp = (otp: string[]): string[] => {
+    const errors: string[] = [];
+    if (otp.some(digit => !digit)) {
+      errors.push('Please enter all 6 digits of the verification code');
+    } else if (!otp.every(digit => /^\d$/.test(digit))) {
+      errors.push('Verification code can only contain numbers');
+    }
+    return errors;
+  };
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      setError('Please enter your email address');
+    const emailErrors = validateEmail(email);
+    if (emailErrors.length > 0) {
+      setErrors(emailErrors);
+      setShowErrors(true);
       return;
     }
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    setError('');
+    setErrors([]);
+    setShowErrors(false);
     setIsEmailSubmitted(true);
   };
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
+    if (value && !/^\d$/.test(value)) return; // Only allow digits
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
@@ -64,38 +80,73 @@ export default function EmailVerification({ onNext }: EmailVerificationProps): R
 
   const handleOtpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.some(digit => !digit)) {
-      setError('Please enter the complete verification code');
+    const otpErrors = validateOtp(otp);
+    if (otpErrors.length > 0) {
+      setErrors(otpErrors);
+      setShowErrors(true);
       return;
     }
+    setErrors([]);
+    setShowErrors(false);
     onNext();
+  };
+
+  const handleCopy = async (text: string, type: 'recipient' | 'hash') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(type);
+      setTimeout(() => setIsCopied(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   return (
     <div className="space-y-8">
-      {/* Transaction receipt */}
+      {/* Transfer Summary */}
       <motion.div
         className="bg-white/5 rounded-lg p-6 space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h3 className="text-lg font-medium">Transaction Receipt</h3>
+        <h3 className="text-lg font-medium">Transfer Summary</h3>
         <div className="space-y-3">
           <div className="flex justify-between">
-            <span className="text-white/70">Amount</span>
-            <span>{TRANSACTION.amount} {TRANSACTION.asset}</span>
+            <span className="text-white/70">Amount Sent</span>
+            <div className="text-right">
+              <span className="text-white">{formatUSD(transferDetails.totalAmount)} </span>
+              <span className="text-white/50">
+                {formatCrypto(transferDetails.totalAmount, transferDetails.asset)}
+              </span>
+            </div>
           </div>
           <div className="flex justify-between">
             <span className="text-white/70">Network</span>
-            <span>{TRANSACTION.chain}</span>
+            <span>{transferDetails.chain}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-white/70">Recipient</span>
-            <span className="font-mono">{TRANSACTION.recipientAddress}</span>
+            <button
+              onClick={() => handleCopy(transferDetails.recipientAddress, 'recipient')}
+              className="font-mono text-right hover:text-blue-400 transition-colors"
+            >
+              {transferDetails.recipientAddress}
+              {isCopied === 'recipient' && (
+                <span className="ml-2 text-green-400">Copied!</span>
+              )}
+            </button>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-white/70">Transaction Hash</span>
-            <span className="font-mono">{TRANSACTION.hash}</span>
+            <button
+              onClick={() => handleCopy(transferDetails.transactionHash || '', 'hash')}
+              className="font-mono text-right hover:text-blue-400 transition-colors"
+            >
+              {transferDetails.transactionHash}
+              {isCopied === 'hash' && (
+                <span className="ml-2 text-green-400">Copied!</span>
+              )}
+            </button>
           </div>
         </div>
       </motion.div>
@@ -120,15 +171,13 @@ export default function EmailVerification({ onNext }: EmailVerificationProps): R
                 transition-all duration-300"
             />
           </div>
-          {error && (
-            <motion.div
-              className="text-red-400 text-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              {error}
-            </motion.div>
-          )}
+
+          <ErrorPopover 
+            errors={errors} 
+            show={showErrors} 
+            onClose={() => setShowErrors(false)} 
+          />
+
           <motion.button
             type="submit"
             className="w-full px-6 py-3 bg-white/10 rounded-lg border border-white/20
@@ -170,15 +219,13 @@ export default function EmailVerification({ onNext }: EmailVerificationProps): R
               ))}
             </div>
           </div>
-          {error && (
-            <motion.div
-              className="text-red-400 text-sm text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              {error}
-            </motion.div>
-          )}
+
+          <ErrorPopover 
+            errors={errors} 
+            show={showErrors} 
+            onClose={() => setShowErrors(false)} 
+          />
+
           <motion.button
             type="submit"
             className="w-full px-6 py-3 bg-white/10 rounded-lg border border-white/20

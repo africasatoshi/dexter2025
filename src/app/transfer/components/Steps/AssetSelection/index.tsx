@@ -13,6 +13,7 @@ import { ErrorPopover } from './ErrorPopover';
 
 interface AssetSelectionProps {
   onNext: () => void;
+  onAssetSelect: (asset: Asset, chain: Chain) => void;
 }
 
 // Asset configurations with popularity flags and address validation rules
@@ -76,12 +77,21 @@ const CHAINS: Record<Chain, { color: string; isPopular?: boolean }> = {
   'Base': { color: '#0052FF' }
 };
 
-export default function AssetSelection({ onNext }: AssetSelectionProps): React.ReactElement {
+export default function AssetSelection({ onNext, onAssetSelect }: AssetSelectionProps): React.ReactElement {
   const [selectedAsset, setSelectedAsset] = useState<Asset>();
   const [selectedChain, setSelectedChain] = useState<Chain>();
   const [address, setAddress] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStep, setScanStep] = useState(0);
+
+  // Scan steps copy
+  const SCAN_STEPS = [
+    "Validating wallet address...",
+    "Reviewing transaction history...",
+    "Scanning fraud databases..."
+  ];
 
   // Get available chains for selected asset
   const availableChains = selectedAsset 
@@ -143,13 +153,21 @@ export default function AssetSelection({ onNext }: AssetSelectionProps): React.R
     return errors;
   };
 
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle form submission with scanning sequence
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: string[] = [];
     
     if (!selectedAsset) {
       newErrors.push('Please select an asset');
+    }
+
+    // For single-chain assets, automatically set the chain
+    if (selectedAsset && !selectedChain) {
+      const asset = ASSETS.find(a => a.symbol === selectedAsset);
+      if (asset && asset.chains.length === 1) {
+        setSelectedChain(asset.chains[0]);
+      }
     }
 
     if (availableChains && availableChains.length > 1 && !selectedChain) {
@@ -165,7 +183,24 @@ export default function AssetSelection({ onNext }: AssetSelectionProps): React.R
       return;
     }
 
-    // If all validation passes, proceed to next step
+    // Start scanning sequence
+    setIsScanning(true);
+    
+    // Notify parent of selection
+    if (selectedAsset) {
+      const chain = selectedChain || ASSETS.find(a => a.symbol === selectedAsset)?.chains[0];
+      if (chain) {
+        onAssetSelect(selectedAsset, chain);
+      }
+    }
+    
+    // Simulate scanning steps
+    for (let i = 0; i < SCAN_STEPS.length; i++) {
+      setScanStep(i);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Proceed to next step
     onNext();
   };
 
@@ -225,16 +260,28 @@ export default function AssetSelection({ onNext }: AssetSelectionProps): React.R
         onClose={() => setShowErrors(false)} 
       />
 
-      {/* Submit button */}
+      {/* Submit button with scanning states */}
       <motion.button
         type="submit"
+        disabled={isScanning}
         className="w-full px-6 py-3 bg-white/10 rounded-lg border border-white/20
           hover:bg-white/20 hover:border-white/30 transition-all duration-300
-          active:scale-95 backdrop-blur-sm"
+          active:scale-95 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.98 }}
       >
-        SAFETY SCAN
+        {isScanning ? (
+          <div className="flex items-center justify-center gap-3">
+            <span>{SCAN_STEPS[scanStep]}</span>
+            <motion.div
+              className="h-4 w-4 border-2 border-white/30 border-t-white/90 rounded-full"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+        ) : (
+          "Initiate Safety Scan"
+        )}
       </motion.button>
     </form>
   );

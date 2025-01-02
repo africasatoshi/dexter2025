@@ -7,9 +7,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { CRYPTO_RATES, GAS_FEES, type Asset, type Chain, type TransferDetails } from '@/app/transfer/types';
 
 interface TestTransferProps {
-  onNext: () => void;
+  onNext: (details: TransferDetails) => void;
+  selectedAsset: Asset;
+  selectedChain: Chain;
 }
 
 interface TestAmount {
@@ -19,24 +22,45 @@ interface TestAmount {
   totalCharge: number;
 }
 
-const TEST_AMOUNTS: TestAmount[] = [
-  { amount: 1, sendGasFee: 0.25, returnGasFee: 0.25, totalCharge: 1.50 },
-  { amount: 2, sendGasFee: 0.25, returnGasFee: 0.25, totalCharge: 2.50 },
-  { amount: 5, sendGasFee: 0.25, returnGasFee: 0.25, totalCharge: 5.50 },
-  { amount: 10, sendGasFee: 0.25, returnGasFee: 0.25, totalCharge: 10.50 }
-];
+const formatUSD = (amount: number) => `$${amount.toFixed(2)}`;
 
-export default function TestTransfer({ onNext }: TestTransferProps): React.ReactElement {
-  const [selectedAmount, setSelectedAmount] = useState<TestAmount>();
+const formatCrypto = (usdAmount: number, asset: 'BTC' | 'ETH' | 'USDC' | 'USDT') => {
+  const rate = CRYPTO_RATES[asset];
+  const cryptoAmount = usdAmount / rate.usdPrice;
+  return `(${cryptoAmount.toFixed(6)} ${rate.symbol})`;
+};
+
+export default function TestTransfer({ onNext, selectedAsset, selectedChain }: TestTransferProps): React.ReactElement {
+  const [selectedAmount, setSelectedAmount] = useState<number>();
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [error, setError] = useState('');
+
+  const gasFees = GAS_FEES[selectedChain];
+  const TEST_AMOUNTS = [1, 2, 5, 10];
 
   const handleSubmit = () => {
     if (!selectedAmount) {
       setError('Please select an amount');
       return;
     }
-    onNext();
+
+    // Create transfer details
+    const details: TransferDetails = {
+      testAmount: selectedAmount,
+      sendGasFee: gasFees.sendGas,
+      returnGasFee: gasFees.returnGas,
+      totalAmount: getTotalCharge(selectedAmount),
+      recipientAddress: '0xabcd...ef90', // This should come from previous step
+      asset: selectedAsset,
+      chain: selectedChain,
+      transactionHash: '0x1234...5678' // This would be generated after actual transaction
+    };
+
+    onNext(details);
+  };
+
+  const getTotalCharge = (testAmount: number) => {
+    return testAmount + gasFees.sendGas + gasFees.returnGas;
   };
 
   return (
@@ -45,13 +69,13 @@ export default function TestTransfer({ onNext }: TestTransferProps): React.React
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {TEST_AMOUNTS.map((amount, index) => (
           <motion.button
-            key={amount.amount}
+            key={amount}
             onClick={() => {
               setSelectedAmount(amount);
               setError('');
             }}
             className={`p-4 rounded-lg border backdrop-blur-sm transition-all duration-300
-              ${selectedAmount?.amount === amount.amount
+              ${selectedAmount === amount
                 ? 'bg-white/20 border-white/30'
                 : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
               }`}
@@ -59,7 +83,7 @@ export default function TestTransfer({ onNext }: TestTransferProps): React.React
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <div className="text-2xl font-bold">${amount.amount}</div>
+            <div className="text-2xl font-bold">{formatUSD(amount)}</div>
             <div className="text-sm text-white/50">USD</div>
           </motion.button>
         ))}
@@ -73,16 +97,32 @@ export default function TestTransfer({ onNext }: TestTransferProps): React.React
           animate={{ opacity: 1 }}
         >
           <div className="flex justify-between items-center">
+            <span className="text-white/70">Test Amount</span>
+            <div className="text-right">
+              <span className="text-white">{formatUSD(selectedAmount)} </span>
+              <span className="text-white/50">{formatCrypto(selectedAmount, selectedAsset)}</span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
             <span className="text-white/70">Send Gas Fee</span>
-            <span className="text-white">${selectedAmount.sendGasFee}</span>
+            <div className="text-right">
+              <span className="text-white">{formatUSD(gasFees.sendGas)} </span>
+              <span className="text-white/50">{formatCrypto(gasFees.sendGas, selectedAsset)}</span>
+            </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-white/70">Return Gas Fee</span>
-            <span className="text-white">${selectedAmount.returnGasFee}</span>
+            <div className="text-right">
+              <span className="text-white">{formatUSD(gasFees.returnGas)} </span>
+              <span className="text-white/50">{formatCrypto(gasFees.returnGas, selectedAsset)}</span>
+            </div>
           </div>
           <div className="border-t border-white/10 pt-4 flex justify-between items-center">
             <span className="text-white/70">Total Charge</span>
-            <span className="text-white font-bold">${selectedAmount.totalCharge}</span>
+            <div className="text-right">
+              <span className="text-white font-bold">{formatUSD(getTotalCharge(selectedAmount))} </span>
+              <span className="text-white/50">{formatCrypto(getTotalCharge(selectedAmount), selectedAsset)}</span>
+            </div>
           </div>
         </motion.div>
       )}
@@ -98,23 +138,33 @@ export default function TestTransfer({ onNext }: TestTransferProps): React.React
         </motion.div>
       )}
 
-      {/* Connect/Send button */}
-      <motion.button
-        onClick={() => {
-          if (!isWalletConnected) {
-            setIsWalletConnected(true);
-          } else {
-            handleSubmit();
-          }
-        }}
-        className="w-full px-6 py-3 bg-white/10 rounded-lg border border-white/20
-          hover:bg-white/20 hover:border-white/30 transition-all duration-300
-          active:scale-95 backdrop-blur-sm"
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        {isWalletConnected ? 'Send Test Transfer' : 'Connect Wallet'}
-      </motion.button>
+      {/* Button container */}
+      <div className="flex gap-4">
+        <motion.button
+          onClick={() => window.history.back()}
+          className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-lg font-medium 
+            transition-colors w-[100px]"
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          Back
+        </motion.button>
+        <motion.button
+          onClick={() => {
+            if (!isWalletConnected) {
+              setIsWalletConnected(true);
+            } else {
+              handleSubmit();
+            }
+          }}
+          className="flex-1 px-6 py-3 bg-white/10 rounded-lg border border-white/20
+            hover:bg-white/20 hover:border-white/30 transition-all duration-300"
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          {isWalletConnected ? 'Send Test Transfer' : 'Connect Wallet'}
+        </motion.button>
+      </div>
     </div>
   );
 } 
